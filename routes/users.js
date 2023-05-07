@@ -2,7 +2,8 @@ var express = require('express');
 var router = express.Router();
 const cors = require('./cors');
 const User = require("../Model/user")
-const passport = require('passport')
+const passport = require('passport');
+const authenticate = require("../authenticate");
 
 /* GET users listing. */
 router.get('/', function(req, res, next) {
@@ -17,7 +18,7 @@ router.post("/signup", cors.corsWithOption, (req, res) => {
       console.log(err)
       res.statusCode = 404;
       res.setHeader("Content-Type", "application/json");
-      res.json({err: err})
+      res.json({success: false, status: err})
     } else {
       if (req.body.email) {
         user.email = req.body.email;
@@ -45,6 +46,7 @@ router.post("/signup", cors.corsWithOption, (req, res) => {
 
 
 router.post("/signin", cors.corsWithOption,  (req, res, next) => {
+  console.log(req.body)
   passport.authenticate("local", (err, user, info) => {
     if (err) { return next(err);}
     if (!user) {
@@ -68,5 +70,14 @@ router.post("/signin", cors.corsWithOption,  (req, res, next) => {
   }) (req, res, next)
 })
 
+router.post("/signout", (req, res, next) => {
+  req.logOut((err) => {
+    if (err) {
+      console.log(err)
+      return next(err)
+    }
+    res.json({status: "http://localhost:3001/"})
+  })
+})
 
 module.exports = router;

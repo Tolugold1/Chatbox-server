@@ -8,20 +8,16 @@ const session = require("express-session");
 const mongoose = require('mongoose');
 const passport = require('passport');
 const cors = require('./routes/cors')
-const helmet = require('helmet')
+const helmet = require('helmet');
+const {HTTPError} = require("./utils/errors");
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
-var googleRouter = require('./routes/googleAuth')
+var googleRouter = require('./routes/googleAuth');
+var messageRouter = require("./routes/message");
 
 var app = express();
-
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  next();
-});
+app.options(cors.corsWithOption, (req, res, next) => { res.sendStatus(200)})
 
 mongoose.connect(process.env.MONGO_DB, { useNewUrlParser: true })
 .then((db) => {
@@ -47,7 +43,6 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-
 app.use(cors.cors);
 app.use(cors.corsWithOption);
 app.use(express.static(path.join(__dirname, 'public')));
@@ -55,6 +50,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use("/auth", googleRouter);
+app.use("/msg", messageRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -64,9 +60,24 @@ app.use(function(req, res, next) {
 // error handler
 app.use(function(err, req, res, next) {
   // set locals, only providing error in development
+
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
+  if (err instanceof HTTPError) {
+    return res.status(err.statusCode).json({
+      title: err.name,
+      message: err.message,
+    });
+  }
 
+  console.log(err.stack);
+  // HANDLE MONGOOSE DUPLICATE ERROR
+  if (err.code == 11000) {
+    return res.status(400).json({
+      title: "Duplicate Field",
+      message: `${Object.keys(err.keyValue)} already exists`,
+    });
+  }
   // render the error page
   res.status(err.status || 500);
   res.render('error');

@@ -7,12 +7,12 @@
 var app = require('../app');
 var debug = require('debug')('chatserver:server');
 var http = require('http');
-
+var { Server } = require("socket.io");
 /**
  * Get port from environment and store in Express.
  */
 
-var port = normalizePort(process.env.PORT || '3000');
+var port = normalizePort(process.env.PORT || '8000');
 app.set('port', port);
 
 /**
@@ -20,6 +20,44 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+var io = new Server(server, {
+  cors: "http://localhost:3000"
+})
+
+let onlineUser = [];
+io.on("connection", (socket) => {
+  console.log("My first practice with socket.io");
+  console.log("Socket", socket.id);
+
+  // listen to a connection
+  // name of my event now is addNewUser
+  socket.on("addNewUser", (userId) => {
+    !onlineUser.some(user => user.userId === userId) &&
+      onlineUser.push({
+        userId,
+        socketId: socket.id
+      });
+      io.emit("getOnlineUsers", onlineUser);
+    console.log("Online user", onlineUser);
+  });
+
+  socket.on("disconnect", () => {
+    onlineUser = onlineUser.filter(user => user.socketId !== socket.id);
+    io.emit("getOnlineUsers", onlineUser);
+  });
+
+  // listen to a send message event
+  socket.on("sendMessage", (message) => {
+    console.log("message", message)
+    const user = onlineUser.find(user => user.userId === message.otherId);
+    console.log("This is the user I'm chatting with", user);
+
+    if (user) {
+      io.to(user.socketId).emit("getMessage", message);
+      console.log("Am not getting any message");
+    }
+  })
+});
 
 /**
  * Listen on provided port, on all network interfaces.
